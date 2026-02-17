@@ -1,0 +1,16 @@
+[package]
+name = "lumina-node"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lumina-types = { path = "../lumina-types" }
+lumina-execution = { path = "../lumina-execution" }
+lumina-storage = { path = "../lumina-storage" }
+lumina-consensus = { path = "../lumina-consensus" }
+lumina-network = { path = "../lumina-network" }
+lumina-api = { path = "../lumina-api" }
+tokio = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+clap = { workspace = true }

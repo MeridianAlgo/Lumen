@@ -1,0 +1,13 @@
+[package]
+name = "lumina-cli"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lumina-types = { path = "../lumina-types" }
+lumina-crypto = { path = "../lumina-crypto" }
+clap = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+reqwest = "0.11"

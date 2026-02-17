@@ -1,0 +1,11 @@
+[package]
+name = "lumina-oracles"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lumina-types = { path = "../lumina-types" }
+serde = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+reqwest = "0.11"

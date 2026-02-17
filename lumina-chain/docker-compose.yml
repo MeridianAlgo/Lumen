@@ -1,0 +1,51 @@
+version: '3.8'
+services:
+  node-1:
+    build: .
+    command: ["./target/release/lumina-node", "--validator"]
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data/node-1:/app/data
+  node-2:
+    build: .
+    command: ["./target/release/lumina-node", "--validator"]
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./data/node-2:/app/data
+  node-3:
+    build: .
+    command: ["./target/release/lumina-node", "--validator"]
+    ports:
+      - "3002:3000"
+    volumes:
+      - ./data/node-3:/app/data
+  node-4:
+    build: .
+    command: ["./target/release/lumina-node", "--validator"]
+    ports:
+      - "3003:3000"
+    volumes:
+      - ./data/node-4:/app/data
+  node-5:
+    build: .
+    command: ["./target/release/lumina-node", "--validator"]
+    ports:
+      - "3004:3000"
+    volumes:
+      - ./data/node-5:/app/data
+  node-6:
+    build: .
+    command: ["./target/release/lumina-node", "--validator"]
+    ports:
+      - "3005:3000"
+    volumes:
+      - ./data/node-6:/app/data
+  node-7:
+    build: .
+    command: ["./target/release/lumina-node", "--validator"]
+    ports:
+      - "3006:3000"
+    volumes:
+      - ./data/node-7:/app/data

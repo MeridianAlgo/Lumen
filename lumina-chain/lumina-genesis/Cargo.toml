@@ -1,0 +1,10 @@
+[package]
+name = "lumina-genesis"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lumina-types = { path = "../lumina-types" }
+lumina-crypto = { path = "../lumina-crypto" }
+serde = { workspace = true }
+anyhow = { workspace = true }

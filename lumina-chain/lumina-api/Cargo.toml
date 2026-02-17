@@ -1,0 +1,14 @@
+[package]
+name = "lumina-api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lumina-types = { path = "../lumina-types" }
+lumina-execution = { path = "../lumina-execution" }
+lumina-storage = { path = "../lumina-storage" }
+tonic = { workspace = true }
+axum = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+tracing = { workspace = true }

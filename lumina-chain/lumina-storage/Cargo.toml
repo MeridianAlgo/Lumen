@@ -1,0 +1,11 @@
+[package]
+name = "lumina-storage"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lumina-types = { path = "../lumina-types" }
+serde = { workspace = true }
+rocksdb = { workspace = true }
+anyhow = { workspace = true }
+bincode = { workspace = true }

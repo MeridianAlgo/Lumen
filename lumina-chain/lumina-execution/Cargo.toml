@@ -1,0 +1,11 @@
+[package]
+name = "lumina-execution"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lumina-types = { path = "../lumina-types" }
+lumina-crypto = { path = "../lumina-crypto" }
+serde = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }

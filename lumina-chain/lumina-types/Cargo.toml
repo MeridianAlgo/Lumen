@@ -1,0 +1,11 @@
+[package]
+name = "lumina-types"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lumina-crypto = { path = "../lumina-crypto" }
+serde = { workspace = true }
+bincode = { workspace = true }
+blake3 = { workspace = true }
+ed25519-dalek = { workspace = true }
