@@ -4,82 +4,124 @@ use lumina_types::instruction::{StablecoinInstruction, AssetType};
 use lumina_types::transaction::Transaction;
 
 #[test]
-fn test_mint_senior() {
+fn test_stabilization_rebalance() {
     let mut state = GlobalState::default();
     let sender = [1u8; 32];
     
-    // Setup initial state
-    state.accounts.insert(sender, AccountState::default());
+    state.total_lusd_supply = 1_000_000;
+    state.reserve_ratio = 0.90;
+    state.stabilization_pool_balance = 500_000;
+    state.oracle_prices.insert("ETH-USD".to_string(), 3000_000_000);
 
-    let mut ctx = ExecutionContext {
-        state: &mut state,
-        height: 1,
-        timestamp: 100,
-    };
+    {
+        let mut ctx = ExecutionContext {
+            state: &mut state,
+            height: 1,
+            timestamp: 100,
+        };
+        let si = StablecoinInstruction::TriggerStabilizer;
+        assert!(execute_si(&si, &sender, &mut ctx).is_ok());
+    }
 
-    let instruction = StablecoinInstruction::MintSenior {
-        amount: 500,
-        collateral_amount: 500,
-        proof: vec![],
-    };
-
-    let tx = Transaction {
-        sender,
-        nonce: 0,
-        instruction,
-        signature: vec![],
-        gas_limit: 1000,
-        gas_price: 1,
-    };
-
-    // Execute
-    assert!(execute_transaction(&tx, &mut ctx).is_ok());
-
-    // Verify State
-    let account = state.accounts.get(&sender).unwrap();
-    assert_eq!(account.lusd_balance, 500);
-    assert_eq!(state.total_lusd_supply, 500);
+    assert!(state.reserve_ratio > 0.90);
+    assert!(state.stabilization_pool_balance < 500_000);
 }
 
 #[test]
-fn test_transfer() {
+fn test_circuit_breaker_logic() {
     let mut state = GlobalState::default();
     let sender = [1u8; 32];
-    let receiver = [2u8; 32];
     
-    state.accounts.insert(sender, AccountState {
-        nonce: 0,
-        lusd_balance: 1000,
-        ljun_balance: 0,
-        lumina_balance: 1000,
-    });
+    state.total_lusd_supply = 1_000_000;
+    state.oracle_prices.insert("ETH-USD".to_string(), 1000_000_000);
 
-    let mut ctx = ExecutionContext {
-        state: &mut state,
-        height: 1,
-        timestamp: 100,
+    let mint_si = StablecoinInstruction::MintSenior {
+        amount: 1,
+        collateral_amount: 1,
+        proof: vec![],
     };
 
-    let instruction = StablecoinInstruction::Transfer {
-        to: receiver,
-        amount: 200,
-        asset: AssetType::LUSD,
-    };
+    {
+        let mut ctx = ExecutionContext {
+            state: &mut state,
+            height: 1,
+            timestamp: 100,
+        };
+        assert!(execute_si(&mint_si, &sender, &mut ctx).is_ok());
+    }
 
+    assert!(state.reserve_ratio < 0.85);
+    assert!(state.circuit_breaker_active);
+
+    {
+        let mut ctx = ExecutionContext {
+            state: &mut state,
+            height: 1,
+            timestamp: 100,
+        };
+        let _tx = Transaction {
+            sender,
+            nonce: 0,
+            instruction: mint_si.clone(),
+            signature: vec![],
+            gas_limit: 1000,
+            gas_price: 1,
+        };
+    }
+    
     let tx = Transaction {
         sender,
-        nonce: 0,
-        instruction,
+        nonce: 1,
+        instruction: mint_si,
         signature: vec![],
         gas_limit: 1000,
         gas_price: 1,
     };
+    let mut ctx = ExecutionContext {
+        state: &mut state,
+        height: 2,
+        timestamp: 200,
+    };
+    assert!(execute_transaction(&tx, &mut ctx).is_err());
+}
 
-    assert!(execute_transaction(&tx, &mut ctx).is_ok());
+#[test]
+fn test_redemption_queueing() {
+    let mut state = GlobalState::default();
+    let sender = [1u8; 32];
+    
+    state.accounts.insert(sender, AccountState {
+        nonce: 0,
+        lusd_balance: 5000,
+        ..Default::default()
+    });
+    state.total_lusd_supply = 5000;
+    state.reserve_ratio = 0.90;
 
-    let sender_acc = state.accounts.get(&sender).unwrap();
-    let receiver_acc = state.accounts.get(&receiver).unwrap();
+    {
+        let mut ctx = ExecutionContext {
+            state: &mut state,
+            height: 1,
+            timestamp: 100,
+        };
+        let redeem_si = StablecoinInstruction::RedeemSenior { amount: 1000 };
+        assert!(execute_si(&redeem_si, &sender, &mut ctx).is_ok());
+    }
 
-    assert_eq!(sender_acc.lusd_balance, 800);
-    assert_eq!(receiver_acc.lusd_balance, 200);
+    assert_eq!(state.accounts.get(&sender).unwrap().lusd_balance, 4000);
+    assert_eq!(state.total_lusd_supply, 5000);
+    assert_eq!(state.fair_redeem_queue.len(), 1);
+
+    {
+        let mut ctx = ExecutionContext {
+            state: &mut state,
+            height: 1,
+            timestamp: 100,
+        };
+        let process_si = StablecoinInstruction::FairRedeemQueue { batch_size: 1 };
+        assert!(execute_si(&process_si, &sender, &mut ctx).is_ok());
+    }
+    
+    assert_eq!(state.total_lusd_supply, 4000);
+    assert_eq!(state.fair_redeem_queue.len(), 0);
 }

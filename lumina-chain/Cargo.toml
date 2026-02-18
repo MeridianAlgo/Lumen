@@ -35,4 +35,4 @@ thiserror = "1"
 prost = "0.12"
 tracing = "0.1"
 tracing-subscriber = "0.3"
-malachite = { git = "https://github.com/circlefin/malachite", branch = "main" }
+# malachite = { git = "https://github.com/informalsystems/malachite", branch = "main" }
