@@ -1,14 +1,17 @@
-use lumina_types::block::{Block, BlockHeader};
-use lumina_types::transaction::Transaction;
-use lumina_types::state::GlobalState;
+#[cfg(feature = "malachite")]
+pub mod app;
+
+use anyhow::{bail, Context, Result};
 use lumina_execution::{execute_transaction, ExecutionContext};
 use lumina_network::NetworkCommand;
 use lumina_storage::db::Storage;
-use tokio::sync::{mpsc, RwLock};
-use std::sync::Arc;
-use tracing::{info, error, warn};
-use anyhow::{Result, bail, Context};
+use lumina_types::block::{Block, BlockHeader};
+use lumina_types::state::GlobalState;
+use lumina_types::transaction::Transaction;
 use std::collections::HashSet;
+use std::sync::Arc;
+use tokio::sync::{mpsc, RwLock};
+use tracing::{error, info, warn};
 
 /// Epoch length in blocks for velocity reward epochs
 const EPOCH_LENGTH: u64 = 8640; // ~1 day at 10s/block
@@ -257,8 +260,7 @@ impl ConsensusService {
         self.storage.save_block(block)?;
         self.storage
             .save_block_meta(block_hash, block.header.height, parent_hash)?;
-        self.storage
-            .save_state_by_hash(block_hash, &next_state)?;
+        self.storage.save_state_by_hash(block_hash, &next_state)?;
 
         // Fork-choice: choose best tip by (height, hash)
         let (cur_tip_h, cur_tip_hash) = self.storage.load_tip()?.unwrap_or((0, [0u8; 32]));
