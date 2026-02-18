@@ -4,81 +4,88 @@ use lumina_types::transaction::Transaction;
 use lumina_execution::{execute_transaction, ExecutionContext};
 use lumina_crypto::signatures::{generate_keypair, sign};
 use std::time::Instant;
-use std::sync::{Arc, RwLock};
-use ed25519_dalek::Signer;
 
 fn main() {
-    println!("--- LuminaChain High-Throughput Simulator ---");
-    
+    println!("=== LuminaChain High-Throughput Simulator ===");
+    println!();
+
     // 1. Setup State
     let mut state = GlobalState::default();
-    // Fund a "whale" account to simulate transfers
     let whale_kp = generate_keypair();
     let whale_addr = whale_kp.verifying_key().to_bytes();
-    
+
     state.accounts.insert(whale_addr, AccountState {
         nonce: 0,
         lusd_balance: 1_000_000_000,
         ljun_balance: 1_000_000_000,
         lumina_balance: 1_000_000_000,
         commitment: None,
+        passkey_device_key: None,
+        guardians: Vec::new(),
+        pq_pubkey: None,
+        epoch_tx_volume: 0,
+        last_reward_epoch: 0,
+        credit_score: 0,
+        active_streams: Vec::new(),
+        yield_positions: Vec::new(),
     });
-    
-    let state_arc = Arc::new(RwLock::new(state));
+
+    state.total_lusd_supply = 1_000_000_000;
+    state.stabilization_pool_balance = 1_200_000_000;
+    state.reserve_ratio = 1.2;
+
     let start_time = Instant::now();
-    let num_txs = 10_000;
-    
+    let num_txs: usize = 10_000;
+
     println!("Generating and executing {} transactions...", num_txs);
 
-    let mut successful_txs = 0;
-    let mut failed_txs = 0;
+    let mut successful_txs: u64 = 0;
+    let mut failed_txs: u64 = 0;
 
-    // Simulate block execution
-    let mut state_guard = state_arc.write().unwrap();
-    let timestamp = 1678886400; // Mock timestamp
-    
+    let timestamp = 1678886400u64;
+
     let mut ctx = ExecutionContext {
-        state: &mut state_guard,
+        state: &mut state,
         height: 1,
         timestamp,
     };
 
     for i in 0..num_txs {
-        // Create a transfer tx
-        let recipient = [0u8; 32]; // Burn address for speed
+        let recipient = [0u8; 32];
         let instruction = StablecoinInstruction::Transfer {
             to: recipient,
             amount: 1,
             asset: AssetType::LUSD,
         };
-        
-        // In a real benchmark, we'd sign every tx, but that dominates CPU.
-        // We'll sign once and reuse to test EXECUTION throughput, or sign all if we want full realism.
-        // Let's sign the payload once to simulate structure.
-        let signature = vec![0u8; 64]; // Mock signature for speed in this specific bench
 
-        let tx = Transaction {
+        // Sign every transaction for realistic benchmarking
+        let mut tx = Transaction {
             sender: whale_addr,
-            nonce: i as u64, // Increment nonce
+            nonce: i as u64,
             instruction,
-            signature,
+            signature: vec![],
             gas_limit: 1000,
             gas_price: 1,
         };
 
+        tx.signature = sign(&whale_kp, &tx.signing_bytes());
+
         match execute_transaction(&tx, &mut ctx) {
-            Ok(_) => successful_txs += 1,
-            Err(_) => failed_txs += 1,
+            Ok(_) => successful_txs = successful_txs.saturating_add(1),
+            Err(_) => failed_txs = failed_txs.saturating_add(1),
         }
     }
 
     let elapsed = start_time.elapsed();
     let tps = num_txs as f64 / elapsed.as_secs_f64();
-    
-    println!("--- Simulation Complete ---");
+
+    println!();
+    println!("=== Simulation Complete ===");
     println!("Executed {} transactions in {:.2?}", num_txs, elapsed);
     println!("Throughput: {:.2} TPS", tps);
     println!("Successful: {}", successful_txs);
     println!("Failed: {}", failed_txs);
-    println!("Final LUSD Supply: {}", state_guard.total_lusd_supply);
+    println!("Final LUSD Supply: {}", ctx.state.total_lusd_supply);
+    println!("Final Reserve Ratio: {:.4}", ctx.state.reserve_ratio);
+    println!("Insurance Fund: {}", ctx.state.insurance_fund_balance);
 }

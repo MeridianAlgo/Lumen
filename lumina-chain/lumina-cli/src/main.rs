@@ -4,13 +4,13 @@ use lumina_types::transaction::Transaction;
 use lumina_types::instruction::{StablecoinInstruction, AssetType};
 use lumina_crypto::signatures::{generate_keypair, sign};
 use reqwest::Client;
-use ed25519_dalek::{SigningKey, VerifyingKey, Signer};
+use ed25519_dalek::SigningKey;
 use serde::{Serialize, Deserialize};
 use std::fs;
 use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(author, version, about, long_about = None)]
+#[command(author, version, about = "LuminaChain CLI — Interact with the LuminaChain network")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -26,38 +26,44 @@ enum Commands {
     Init,
     /// Show current wallet info
     Show,
-    /// Mint stablecoin (Testnet only)
+    /// Mint stablecoin (Testnet)
     Mint {
         #[arg(long)]
         amount: u64,
         #[arg(long)]
-        asset: String, // senior/junior
+        asset: String,
     },
     /// Transfer tokens
     Transfer {
         #[arg(long)]
-        to: String, // hex
+        to: String,
         #[arg(long)]
         amount: u64,
         #[arg(long)]
-        asset: String, // lusd/ljun
+        asset: String,
     },
     /// Get account balance
     Balance {
         #[arg(long)]
-        address: String, // hex
+        address: String,
     },
     /// Get block info
     Block {
         #[arg(long)]
         height: u64,
     },
+    /// Query the Lumina Health Index
+    Health,
+    /// Query insurance fund
+    Insurance,
+    /// Query validators
+    Validators,
 }
 
 #[derive(Serialize, Deserialize)]
 struct Wallet {
-    secret_key: String, // hex
-    public_key: String, // hex
+    secret_key: String,
+    public_key: String,
 }
 
 impl Wallet {
@@ -107,36 +113,33 @@ async fn main() -> Result<()> {
             let instruction = match asset.to_lowercase().as_str() {
                 "senior" | "lusd" => StablecoinInstruction::MintSenior {
                     amount: *amount,
-                    collateral_amount: 0,
+                    collateral_amount: amount.saturating_mul(120) / 100,
                     proof: vec![],
                 },
                 "junior" | "ljun" => StablecoinInstruction::MintJunior {
                     amount: *amount,
-                    collateral_amount: 0,
+                    collateral_amount: amount.saturating_mul(120) / 100,
                 },
-                _ => return Err(anyhow!("Invalid asset type")),
+                _ => return Err(anyhow!("Invalid asset type. Use: senior/lusd or junior/ljun")),
             };
-
-            // Fetch current nonce from node (Phase 3 enhancement)
-            // Simplified: use 0 or let node handle (mempool logic)
-            let nonce = 0; 
 
             let mut tx = Transaction {
                 sender,
-                nonce,
+                nonce: 0,
                 instruction,
                 signature: vec![],
-                gas_limit: 100000,
+                gas_limit: 100_000,
                 gas_price: 1,
             };
 
-            tx.signature = sign(&kp, &bincode::serialize(&tx.instruction).unwrap());
+            tx.signature = sign(&kp, &tx.signing_bytes());
 
-            let res = client.post(format!("{}/tx", cli.node_url))
+            let res = client
+                .post(format!("{}/tx", cli.node_url))
                 .json(&tx)
                 .send()
                 .await?;
-            
+
             println!("Response: {}", res.text().await?);
         }
         Commands::Transfer { to, amount, asset } => {
@@ -150,8 +153,8 @@ async fn main() -> Result<()> {
             let asset_type = match asset.to_lowercase().as_str() {
                 "lusd" => AssetType::LUSD,
                 "ljun" => AssetType::LJUN,
-                "lumina" => AssetType::Lumina(*amount),
-                _ => return Err(anyhow!("Invalid asset type")),
+                "lumina" => AssetType::Lumina,
+                _ => return Err(anyhow!("Invalid asset. Use: lusd, ljun, or lumina")),
             };
 
             let instruction = StablecoinInstruction::Transfer {
@@ -165,43 +168,71 @@ async fn main() -> Result<()> {
                 nonce: 0,
                 instruction,
                 signature: vec![],
-                gas_limit: 100000,
+                gas_limit: 100_000,
                 gas_price: 1,
             };
 
-            tx.signature = sign(&kp, &bincode::serialize(&tx.instruction).unwrap());
+            tx.signature = sign(&kp, &tx.signing_bytes());
 
-            let res = client.post(format!("{}/tx", cli.node_url))
+            let res = client
+                .post(format!("{}/tx", cli.node_url))
                 .json(&tx)
                 .send()
                 .await?;
-            
+
             println!("Response: {}", res.text().await?);
         }
-        Commands::Balance { address: _ } => {
-            let res = client.get(format!("{}/state", cli.node_url))
+        Commands::Balance { address } => {
+            let res = client
+                .get(format!("{}/account/{}", cli.node_url, address))
                 .send()
                 .await?
-                .json::<lumina_types::state::GlobalState>()
+                .text()
                 .await?;
-            
-            println!("--- LuminaChain Global State ---");
-            println!("Total LUSD Supply: {}", res.total_lusd_supply);
-            println!("Total LJUN Supply: {}", res.total_ljun_supply);
-            println!("Reserve Ratio: {:.2}", res.reserve_ratio);
-            println!("Stabilization Pool: {}", res.stabilization_pool_balance);
-            println!("Circuit Breaker: {}", res.circuit_breaker_active);
+
+            println!("Account Info:\n{}", res);
         }
         Commands::Block { height } => {
-            let res = client.get(format!("{}/block/{}", cli.node_url, height))
+            let res = client
+                .get(format!("{}/block/{}", cli.node_url, height))
                 .send()
                 .await?;
-            
+
             if res.status().is_success() {
-                 println!("Block Info: {}", res.text().await?);
+                println!("Block Info: {}", res.text().await?);
             } else {
-                 println!("Block not found");
+                println!("Block not found");
             }
+        }
+        Commands::Health => {
+            let res = client
+                .get(format!("{}/health", cli.node_url))
+                .send()
+                .await?
+                .text()
+                .await?;
+
+            println!("Lumina Health Index:\n{}", res);
+        }
+        Commands::Insurance => {
+            let res = client
+                .get(format!("{}/insurance", cli.node_url))
+                .send()
+                .await?
+                .text()
+                .await?;
+
+            println!("Insurance Fund:\n{}", res);
+        }
+        Commands::Validators => {
+            let res = client
+                .get(format!("{}/validators", cli.node_url))
+                .send()
+                .await?
+                .text()
+                .await?;
+
+            println!("Validators:\n{}", res);
         }
     }
 

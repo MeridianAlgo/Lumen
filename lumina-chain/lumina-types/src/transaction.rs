@@ -34,8 +34,7 @@ impl Transaction {
     }
 
     pub fn id(&self) -> [u8; 32] {
-        use blake3::Hasher;
-        let mut hasher = Hasher::new();
+        let mut hasher = blake3::Hasher::new();
         hasher.update(&self.signing_bytes());
         hasher.update(&self.signature);
         *hasher.finalize().as_bytes()

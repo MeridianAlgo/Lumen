@@ -1,16 +1,17 @@
-use lumina_types::block::{Block, Vote, BlockHeader};
+use lumina_types::block::{Block, BlockHeader};
 use lumina_types::transaction::Transaction;
-use lumina_types::instruction::StablecoinInstruction;
 use lumina_types::state::GlobalState;
 use lumina_execution::{execute_transaction, ExecutionContext};
-use lumina_network::{NetworkCommand, NetworkEvent};
+use lumina_network::NetworkCommand;
 use lumina_storage::db::Storage;
 use tokio::sync::{mpsc, RwLock};
 use std::sync::Arc;
-use tracing::{info, error};
-use bincode;
+use tracing::{info, error, warn};
 use anyhow::{Result, bail, Context};
 use std::collections::HashSet;
+
+/// Epoch length in blocks for velocity reward epochs
+const EPOCH_LENGTH: u64 = 8640; // ~1 day at 10s/block
 
 pub struct ConsensusService {
     state: Arc<RwLock<GlobalState>>,
@@ -42,21 +43,20 @@ impl ConsensusService {
     }
 
     pub async fn run(mut self) {
-        info!("Starting Consensus Service (Mocked Malachite Loop)...");
-        
+        info!("Starting Consensus Service...");
+
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
-        let mut current_height = 0;
+        let mut current_height = 0u64;
         let mut last_block_hash = [0u8; 32];
 
-        // Load canonical chain tip from storage for recovery
+        // Load canonical chain tip from storage for crash recovery
         if let Ok(Some((h, hash))) = self.storage.load_tip() {
             current_height = h;
             last_block_hash = hash;
-            info!("Recovered chain tip. Starting at height {}", current_height);
+            info!("Recovered chain tip at height {}", current_height);
         }
 
-        // Ensure we have a state snapshot for the recovered tip height.
-        // This is required for deterministic block validation/import.
+        // Ensure genesis state snapshot exists
         {
             let state_guard = self.state.read().await;
             if self
@@ -66,8 +66,14 @@ impl ConsensusService {
                 .flatten()
                 .is_none()
             {
-                if let Err(e) = self.storage.save_state_at_height(current_height, &state_guard) {
-                    error!("Failed to save state snapshot at height {}: {}", current_height, e);
+                if let Err(e) = self
+                    .storage
+                    .save_state_at_height(current_height, &state_guard)
+                {
+                    error!(
+                        "Failed to save state snapshot at height {}: {}",
+                        current_height, e
+                    );
                 }
             }
         }
@@ -90,7 +96,7 @@ impl ConsensusService {
                                 }
                             }
                             Err(e) => {
-                                error!("Network block import failed: {}", e);
+                                warn!("Network block import failed: {}", e);
                             }
                         }
                     }
@@ -101,10 +107,17 @@ impl ConsensusService {
                     }
 
                     let txs: Vec<Transaction> = self.mempool.drain(..).collect();
-                    info!("Consensus: Proposing block {} with {} txs", current_height + 1, txs.len());
+                    let height = current_height.saturating_add(1);
+                    info!(
+                        "Consensus: Proposing block {} with {} txs",
+                        height,
+                        txs.len()
+                    );
 
-                    let timestamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
-                    let height = current_height + 1;
+                    let timestamp = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs();
 
                     let parent_state = match self
                         .storage
@@ -117,12 +130,21 @@ impl ConsensusService {
                             continue;
                         }
                         Err(e) => {
-                            error!("Failed to load parent snapshot at height {}: {}", current_height, e);
+                            error!(
+                                "Failed to load parent snapshot at height {}: {}",
+                                current_height, e
+                            );
                             continue;
                         }
                     };
 
-                    let proposed = match build_block_from_parent(parent_state, txs, height, last_block_hash, timestamp) {
+                    let proposed = match build_block_from_parent(
+                        parent_state,
+                        txs,
+                        height,
+                        last_block_hash,
+                        timestamp,
+                    ) {
                         Ok(b) => b,
                         Err(e) => {
                             error!("Failed to build block {}: {}", height, e);
@@ -137,15 +159,19 @@ impl ConsensusService {
                                 current_height = proposed.header.height;
                                 let state_guard = self.state.read().await;
                                 info!(
-                                    "Consensus: Committed block {} with {} txs. Total LUSD Supply: {}",
+                                    "Consensus: Committed block {} with {} txs. LUSD Supply: {} | Health: {}",
                                     current_height,
                                     proposed.transactions.len(),
-                                    state_guard.total_lusd_supply
+                                    state_guard.total_lusd_supply,
+                                    state_guard.health_index,
                                 );
 
                                 // Broadcast canonical block
                                 if let Ok(bytes) = bincode::serialize(&proposed) {
-                                    let _ = self.network_tx.send(NetworkCommand::BroadcastBlock(bytes)).await;
+                                    let _ = self
+                                        .network_tx
+                                        .send(NetworkCommand::BroadcastBlock(bytes))
+                                        .await;
                                 }
                             }
                         }
@@ -184,7 +210,7 @@ impl ConsensusService {
             bail!("Invalid transactions_root");
         }
 
-        // Load parent state by hash
+        // Load parent state
         let parent_state = if block.header.height == 1 {
             self.storage.load_state_by_height(0)?.unwrap_or_default()
         } else {
@@ -194,7 +220,7 @@ impl ConsensusService {
         };
 
         // Execute txs to compute expected state root
-        let mut next_state = parent_state.clone();
+        let mut next_state = parent_state;
         {
             let mut ctx = ExecutionContext {
                 state: &mut next_state,
@@ -203,6 +229,22 @@ impl ConsensusService {
             };
             for tx in &block.transactions {
                 execute_transaction(tx, &mut ctx)?;
+            }
+
+            // End-of-block: verify flash mints are fully burned
+            if next_state.pending_flash_mints > 0 {
+                bail!(
+                    "Unresolved flash mints: {} LUSD not burned",
+                    next_state.pending_flash_mints
+                );
+            }
+
+            // Epoch transition for velocity rewards
+            if block.header.height % EPOCH_LENGTH == 0 {
+                next_state.current_epoch = next_state
+                    .current_epoch
+                    .checked_add(1)
+                    .unwrap_or(next_state.current_epoch);
             }
         }
 
@@ -213,24 +255,25 @@ impl ConsensusService {
 
         // Persist fork block
         self.storage.save_block(block)?;
-        self.storage.save_block_meta(block_hash, block.header.height, parent_hash)?;
-        self.storage.save_state_by_hash(block_hash, &next_state)?;
+        self.storage
+            .save_block_meta(block_hash, block.header.height, parent_hash)?;
+        self.storage
+            .save_state_by_hash(block_hash, &next_state)?;
 
         // Fork-choice: choose best tip by (height, hash)
         let (cur_tip_h, cur_tip_hash) = self.storage.load_tip()?.unwrap_or((0, [0u8; 32]));
-        let better =
-            (block.header.height > cur_tip_h) || (block.header.height == cur_tip_h && block_hash > cur_tip_hash);
+        let better = (block.header.height > cur_tip_h)
+            || (block.header.height == cur_tip_h && block_hash > cur_tip_hash);
         if !better {
             return Ok(false);
         }
 
-        // Reorg canonical mapping to this new tip
+        // Reorg canonical mapping
         self.reorg_to_tip(block_hash, block.header.height).await?;
         Ok(true)
     }
 
     async fn reorg_to_tip(&self, new_tip_hash: [u8; 32], new_tip_height: u64) -> Result<()> {
-        // Walk back to genesis collecting (height, hash)
         let mut chain: Vec<(u64, [u8; 32])> = Vec::new();
         let mut cursor_hash = new_tip_hash;
         loop {
@@ -246,7 +289,6 @@ impl ConsensusService {
         }
         chain.reverse();
 
-        // Update canonical height map + per-height state snapshots
         for (h, hash) in &chain {
             self.storage.save_canonical_block_at_height(*h, *hash)?;
             let st = self
@@ -256,7 +298,6 @@ impl ConsensusService {
             self.storage.save_state_at_height(*h, &st)?;
         }
 
-        // Persist latest state + tip
         let tip_state = self
             .storage
             .load_state_by_hash(&new_tip_hash)?
@@ -264,7 +305,6 @@ impl ConsensusService {
         self.storage.save_state(&tip_state)?;
         self.storage.save_tip(new_tip_height, new_tip_hash)?;
 
-        // Update in-memory state
         {
             let mut guard = self.state.write().await;
             *guard = tip_state;
@@ -294,7 +334,7 @@ fn build_block_from_parent(
             match execute_transaction(&tx, &mut ctx) {
                 Ok(()) => valid_txs.push(tx),
                 Err(e) => {
-                    error!("Tx execution failed: {}", e);
+                    warn!("Tx execution failed during block build: {}", e);
                 }
             }
         }

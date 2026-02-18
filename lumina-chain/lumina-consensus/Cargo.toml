@@ -12,13 +12,11 @@ lumina-types = { path = "../lumina-types" }
 lumina-execution = { path = "../lumina-execution" }
 lumina-storage = { path = "../lumina-storage" }
 lumina-network = { path = "../lumina-network" }
-async-trait = "0.1"
+async-trait = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }
 bincode = { workspace = true }
 tracing = { workspace = true }
 blake3 = { workspace = true }
 anyhow = { workspace = true }
-hex = "0.4"
-
-# malachite = { workspace = true }
+hex = { workspace = true }

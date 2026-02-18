@@ -22,7 +22,7 @@ pub struct BlockHeader {
 pub struct Block {
     pub header: BlockHeader,
     pub transactions: Vec<Transaction>,
-    pub votes: Vec<Vote>, // Commit signatures from validators
+    pub votes: Vec<Vote>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -53,9 +53,8 @@ impl Block {
     }
 
     pub fn hash(&self) -> [u8; 32] {
-        use blake3::Hasher;
-        let mut hasher = Hasher::new();
-        hasher.update(&bincode::serialize(&self.header).unwrap());
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(&bincode::serialize(&self.header).expect("block header serialization"));
         *hasher.finalize().as_bytes()
     }
 }

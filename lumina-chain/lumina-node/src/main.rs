@@ -31,7 +31,7 @@ async fn main() -> Result<()> {
     info!("Storage initialized at {}", args.data_dir);
 
     // 3. Load or Create State
-    let mut state = match storage.load_state() {
+    let state = match storage.load_state() {
         Ok(s) => {
             if s.accounts.is_empty() && s.total_lusd_supply == 0 {
                 info!("State is empty, generating Genesis block...");

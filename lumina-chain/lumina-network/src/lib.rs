@@ -1,5 +1,5 @@
 use libp2p::{
-    gossipsub, noise, swarm::Config as SwarmConfig, swarm::NetworkBehaviour, swarm::SwarmEvent, tcp, yamux, Multiaddr, PeerId, Swarm, Transport,
+    gossipsub, noise, swarm::Config as SwarmConfig, swarm::NetworkBehaviour, swarm::SwarmEvent, tcp, yamux, PeerId, Swarm, Transport,
 };
 use libp2p::futures::StreamExt;
 use std::time::Duration;

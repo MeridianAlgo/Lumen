@@ -3,7 +3,7 @@ version: '3.8'
 services:
   validator-1:
     build: .
-    command: cargo run --release --bin lumina-node -- --validator --data-dir /data
+    command: ["--validator", "--data-dir", "/data"]
     volumes:
       - ./data/v1:/data
     ports:
@@ -12,23 +12,60 @@ services:
 
   validator-2:
     build: .
-    command: cargo run --release --bin lumina-node -- --validator --data-dir /data
+    command: ["--validator", "--data-dir", "/data"]
     volumes:
       - ./data/v2:/data
+    ports:
+      - "3002:3000"
     depends_on:
       - validator-1
 
   validator-3:
     build: .
-    command: cargo run --release --bin lumina-node -- --validator --data-dir /data
+    command: ["--validator", "--data-dir", "/data"]
     volumes:
       - ./data/v3:/data
+    ports:
+      - "3003:3000"
     depends_on:
       - validator-1
 
-  # ... extend for 7 validators
+  validator-4:
+    build: .
+    command: ["--validator", "--data-dir", "/data"]
+    volumes:
+      - ./data/v4:/data
+    ports:
+      - "3004:3000"
+    depends_on:
+      - validator-1
 
-  oracle-simulator:
-    image: python:3.9-slim
-    command: python -c "import time; print('Oracle Simulator Running...')"
-    # In real scenario, this would post UpdateOracle transactions
+  validator-5:
+    build: .
+    command: ["--validator", "--data-dir", "/data"]
+    volumes:
+      - ./data/v5:/data
+    ports:
+      - "3005:3000"
+    depends_on:
+      - validator-1
+
+  validator-6:
+    build: .
+    command: ["--validator", "--data-dir", "/data"]
+    volumes:
+      - ./data/v6:/data
+    ports:
+      - "3006:3000"
+    depends_on:
+      - validator-1
+
+  validator-7:
+    build: .
+    command: ["--validator", "--data-dir", "/data"]
+    volumes:
+      - ./data/v7:/data
+    ports:
+      - "3007:3000"
+    depends_on:
+      - validator-1
