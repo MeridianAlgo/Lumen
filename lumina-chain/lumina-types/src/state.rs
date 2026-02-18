@@ -1,5 +1,5 @@
-use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
+use std::collections::{BTreeMap, HashMap};
 
 /// Per-account state stored in the global state tree.
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -93,9 +93,124 @@ pub struct GlobalState {
 
 impl GlobalState {
     pub fn root_hash(&self) -> [u8; 32] {
-        let bytes = bincode::serialize(self).expect("state serialization");
-        *blake3::hash(&bytes).as_bytes()
+        let entries: BTreeMap<[u8; 32], Vec<u8>> = self
+            .accounts
+            .iter()
+            .map(|(k, v)| (*k, bincode::serialize(v).expect("account serialization")))
+            .collect();
+        account_trie_root(&entries)
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+enum MptNode {
+    Leaf {
+        path: Vec<u8>,
+        value: Vec<u8>,
+    },
+    Extension {
+        path: Vec<u8>,
+        child: [u8; 32],
+    },
+    Branch {
+        children: [Option<[u8; 32]>; 16],
+        value: Option<Vec<u8>>,
+    },
+}
+
+fn account_trie_root(entries: &BTreeMap<[u8; 32], Vec<u8>>) -> [u8; 32] {
+    let data: Vec<(Vec<u8>, Vec<u8>)> = entries
+        .iter()
+        .map(|(k, v)| (bytes_to_nibbles(k), v.clone()))
+        .collect();
+    build_hash(data, Vec::new()).unwrap_or([0u8; 32])
+}
+
+fn build_hash(entries: Vec<(Vec<u8>, Vec<u8>)>, prefix: Vec<u8>) -> Option<[u8; 32]> {
+    if entries.is_empty() {
+        return None;
+    }
+
+    if entries.len() == 1 {
+        let (k, v) = &entries[0];
+        let node = MptNode::Leaf {
+            path: k[prefix.len()..].to_vec(),
+            value: v.clone(),
+        };
+        return Some(hash_node(&node));
+    }
+
+    let has_exact = entries.iter().any(|(k, _)| k.len() == prefix.len());
+    let ext = if has_exact {
+        Vec::new()
+    } else {
+        longest_common_extension(&entries, prefix.len())
+    };
+
+    if !ext.is_empty() {
+        let child_prefix = [prefix, ext.clone()].concat();
+        let child = build_hash(entries, child_prefix)?;
+        let node = MptNode::Extension { path: ext, child };
+        return Some(hash_node(&node));
+    }
+
+    let mut children: [Option<[u8; 32]>; 16] = [None; 16];
+    let mut value_at_node = None;
+
+    for (k, v) in &entries {
+        if k.len() == prefix.len() {
+            value_at_node = Some(v.clone());
+            break;
+        }
+    }
+
+    for nib in 0u8..=15 {
+        let subset: Vec<(Vec<u8>, Vec<u8>)> = entries
+            .iter()
+            .filter(|(k, _)| k.len() > prefix.len() && k[prefix.len()] == nib)
+            .cloned()
+            .collect();
+        children[nib as usize] = build_hash(subset, [prefix.clone(), vec![nib]].concat());
+    }
+
+    let node = MptNode::Branch {
+        children,
+        value: value_at_node,
+    };
+    Some(hash_node(&node))
+}
+
+fn hash_node(node: &MptNode) -> [u8; 32] {
+    let encoded = bincode::serialize(node).expect("node serialization");
+    *blake3::hash(&encoded).as_bytes()
+}
+
+fn longest_common_extension(entries: &[(Vec<u8>, Vec<u8>)], start: usize) -> Vec<u8> {
+    let mut out = Vec::new();
+    let mut idx = start;
+
+    loop {
+        let Some(first) = entries[0].0.get(idx) else {
+            break;
+        };
+        if entries.iter().all(|(k, _)| k.get(idx) == Some(first)) {
+            out.push(*first);
+            idx += 1;
+        } else {
+            break;
+        }
+    }
+
+    out
+}
+
+fn bytes_to_nibbles(bytes: &[u8; 32]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(64);
+    for b in bytes {
+        out.push((b >> 4) & 0x0F);
+        out.push(b & 0x0F);
+    }
+    out
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
