@@ -10,7 +10,10 @@ lumina-storage = { path = "../lumina-storage" }
 lumina-consensus = { path = "../lumina-consensus" }
 lumina-network = { path = "../lumina-network" }
 lumina-api = { path = "../lumina-api" }
+lumina-genesis = { path = "../lumina-genesis" }
 tokio = { workspace = true }
 tracing = { workspace = true }
+tracing-subscriber = "0.3"
 anyhow = { workspace = true }
 clap = { workspace = true }
+bincode = { workspace = true }

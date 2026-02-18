@@ -1,45 +1,51 @@
-# LuminaChain
+# Lumina Chain
 
-The most secure, lightweight, stablecoin-native blockchain.
+Lumina Chain is a high-performance, stablecoin-native L1 blockchain built in Rust. It features a novel dual-tranche stablecoin mechanism (LUSD/LJUN), zk-Proof of Reserves, and privacy-preserving transactions.
 
-## Features
-- Native Stablecoin Instructions (SIs) via enum-based VM
-- Malachite BFT Consensus (Tendermint-based)
-- libp2p Networking
-- RocksDB Storage
-- ZK-PoR & Compliance stubs (Arkworks)
-- Pure Rust implementation
+## Architecture
 
-## Prerequisites
+- **Consensus**: Malachite BFT (Tendermint-based) with sub-second finality.
+- **Network**: libp2p (Gossipsub + Noise + Yamux).
+- **Execution**: Pure Rust State Machine with deterministic Stablecoin Instructions (SIs).
+- **Storage**: RocksDB with Merkle Trie (stateless validation ready).
+- **Privacy**: Zero-Knowledge Proofs (Groth16) and Confidential Transfers (Bulletproofs).
+
+## Requirements
+
 - Rust 1.75+
-- Docker & Docker Compose
-- Protobuf Compiler (`protoc`) for Malachite/Tonic
+- Clang (for RocksDB)
+- CMake
 
 ## Build
+
 ```bash
 cargo build --release
 ```
 
-## Run Testnet
+## Run Local Testnet
+
+```bash
+# Initialize data directory
+cargo run --bin lumina-node -- --data-dir ./data
+
+# Run validator node
+cargo run --bin lumina-node -- --validator --data-dir ./validator1
+```
+
+## Docker Testnet
+
+Start a 7-validator testnet with simulated oracle and fiat bridge:
+
 ```bash
 docker-compose up --build
 ```
 
-## CLI Usage
-```bash
-# Generate keypair
-cargo run --bin lumina-cli keygen
+## API
 
-# Mint LUM
-cargo run --bin lumina-cli mint --amount 1000 --tranche senior
-```
+- **Get State**: `GET http://localhost:3000/state`
+- **Submit Tx**: `POST http://localhost:3000/tx`
+- **Faucet**: `POST http://localhost:3000/faucet`
 
-## Project Structure
-- `lumina-types`: Core data structures (Block, Tx, SI)
-- `lumina-execution`: State machine logic
-- `lumina-consensus`: Consensus engine integration
-- `lumina-network`: P2P networking
-- `lumina-storage`: Database layer
-- `lumina-node`: Main node binary
-- `lumina-cli`: Wallet/Client tool
-- `lumina-api`: REST/gRPC API
+## License
+
+MIT

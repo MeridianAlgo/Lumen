@@ -1,47 +1,83 @@
-use lumina_types::state::GlobalState;
-use lumina_types::instruction::{StablecoinInstruction, TrancheType};
-use lumina_execution::state_machine::execute_si;
-use lumina_crypto::signatures::generate_keypair;
+use lumina_types::state::{GlobalState, AccountState};
+use lumina_types::instruction::{StablecoinInstruction, AssetType};
+use lumina_types::transaction::Transaction;
+use lumina_execution::{execute_transaction, ExecutionContext};
+use lumina_crypto::signatures::{generate_keypair, sign};
+use std::time::Instant;
+use std::sync::{Arc, RwLock};
 use ed25519_dalek::Signer;
 
 fn main() {
-    println!("--- LuminaChain Stress Simulator ---");
-    let mut state = GlobalState::new();
-    let admin_kp = generate_keypair();
+    println!("--- LuminaChain High-Throughput Simulator ---");
     
-    // 1. Genesis setup
-    state.stabilization_pool_balance = 1_000_000;
-    println!("Initial Stabilization Pool: {}", state.stabilization_pool_balance);
+    // 1. Setup State
+    let mut state = GlobalState::default();
+    // Fund a "whale" account to simulate transfers
+    let whale_kp = generate_keypair();
+    let whale_addr = whale_kp.verifying_key().to_bytes();
+    
+    state.accounts.insert(whale_addr, AccountState {
+        nonce: 0,
+        lusd_balance: 1_000_000_000,
+        ljun_balance: 1_000_000_000,
+        lumina_balance: 1_000_000_000,
+    });
+    
+    let state_arc = Arc::new(RwLock::new(state));
+    let start_time = Instant::now();
+    let num_txs = 10_000;
+    
+    println!("Generating and executing {} transactions...", num_txs);
 
-    // 2. Simulate User Mints
-    let user1 = generate_keypair();
-    let mint_tx = create_signed_tx(&user1, StablecoinInstruction::MintJunior { amount: 50_000 }, 1);
-    execute_si(&mint_tx, &mut state).unwrap();
-    println!("User1 minted 50k Junior. Junior Supply: {}", state.junior_supply);
+    let mut successful_txs = 0;
+    let mut failed_txs = 0;
 
-    // 3. Simulate a Depeg
-    state.current_collateral_ratio = 0.85;
-    println!("CRITICAL: Collateral Ratio dropped to 0.85!");
-
-    // 4. Trigger Stabilizer
-    let stab_tx = create_signed_tx(&admin_kp, StablecoinInstruction::TriggerStabilizer, 1);
-    execute_si(&stab_tx, &mut state).unwrap();
-    println!("Stabilizer triggered. New Senior Supply: {}", state.senior_supply);
-
-    // 5. Final State Report
-    println!("--- Simulation Complete ---");
-    println!("Final State: {:?}", state);
-}
-
-fn create_signed_tx(kp: &ed25519_dalek::SigningKey, instr: StablecoinInstruction, nonce: u64) -> lumina_types::transaction::Transaction {
-    let mut tx = lumina_types::transaction::Transaction {
-        instruction: instr,
-        sender: kp.verifying_key().to_bytes(),
-        nonce,
-        signature: None,
+    // Simulate block execution
+    let mut state_guard = state_arc.write().unwrap();
+    let timestamp = 1678886400; // Mock timestamp
+    
+    let mut ctx = ExecutionContext {
+        state: &mut state_guard,
+        height: 1,
+        timestamp,
     };
-    let bytes = tx.signable_bytes();
-    let sig = kp.sign(&bytes);
-    tx.signature = Some(sig);
-    tx
+
+    for i in 0..num_txs {
+        // Create a transfer tx
+        let recipient = [0u8; 32]; // Burn address for speed
+        let instruction = StablecoinInstruction::Transfer {
+            to: recipient,
+            amount: 1,
+            asset: AssetType::LUSD,
+        };
+        
+        // In a real benchmark, we'd sign every tx, but that dominates CPU.
+        // We'll sign once and reuse to test EXECUTION throughput, or sign all if we want full realism.
+        // Let's sign the payload once to simulate structure.
+        let signature = vec![0u8; 64]; // Mock signature for speed in this specific bench
+
+        let tx = Transaction {
+            sender: whale_addr,
+            nonce: i as u64, // Increment nonce
+            instruction,
+            signature,
+            gas_limit: 1000,
+            gas_price: 1,
+        };
+
+        match execute_transaction(&tx, &mut ctx) {
+            Ok(_) => successful_txs += 1,
+            Err(_) => failed_txs += 1,
+        }
+    }
+
+    let elapsed = start_time.elapsed();
+    let tps = num_txs as f64 / elapsed.as_secs_f64();
+    
+    println!("--- Simulation Complete ---");
+    println!("Executed {} transactions in {:.2?}", num_txs, elapsed);
+    println!("Throughput: {:.2} TPS", tps);
+    println!("Successful: {}", successful_txs);
+    println!("Failed: {}", failed_txs);
+    println!("Final LUSD Supply: {}", state_guard.total_lusd_supply);
 }

@@ -1,20 +1,21 @@
 use serde::{Serialize, Deserialize};
-use lumina_crypto::signatures::Sig;
 use crate::instruction::StablecoinInstruction;
-use bincode;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Transaction {
-    pub instruction: StablecoinInstruction,
-    pub sender: [u8; 32], // Public key bytes
+    pub sender: [u8; 32],
     pub nonce: u64,
-    pub signature: Option<Sig>,
+    pub instruction: StablecoinInstruction,
+    pub signature: Vec<u8>,
+    pub gas_limit: u64,
+    pub gas_price: u64,
 }
 
 impl Transaction {
-    pub fn signable_bytes(&self) -> Vec<u8> {
-        let mut tx = self.clone();
-        tx.signature = None;
-        bincode::serialize(&tx).expect("Failed to serialize transaction for signing")
+    pub fn id(&self) -> [u8; 32] {
+        use blake3::Hasher;
+        let mut hasher = Hasher::new();
+        hasher.update(&bincode::serialize(self).unwrap());
+        *hasher.finalize().as_bytes()
     }
 }

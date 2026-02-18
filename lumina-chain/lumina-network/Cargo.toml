@@ -5,6 +5,8 @@ edition = "2021"
 
 [dependencies]
 lumina-types = { path = "../lumina-types" }
-libp2p = { workspace = true }
-tokio = { workspace = true }
+libp2p = { workspace = true, features = ["gossipsub", "noise", "tcp", "yamux", "macros", "tokio"] }
+tokio = { workspace = true, features = ["full"] }
 futures = "0.3"
+tracing = { workspace = true }
+anyhow = "1.0"

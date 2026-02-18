@@ -1,20 +1,27 @@
-use ed25519_dalek::{Signer, Verifier, SigningKey, VerifyingKey, Signature};
+use ed25519_dalek::{SigningKey, VerifyingKey, Signature, Signer, Verifier};
 use rand::rngs::OsRng;
-pub use ed25519_dalek::Error;
+use anyhow::{Result, bail};
 
-pub type KeyPair = SigningKey;
-pub type PublicKey = VerifyingKey;
-pub type Sig = Signature;
-
-pub fn generate_keypair() -> KeyPair {
+pub fn generate_keypair() -> SigningKey {
     let mut csprng = OsRng;
     SigningKey::generate(&mut csprng)
 }
 
-pub fn sign(keypair: &KeyPair, message: &[u8]) -> Signature {
-    keypair.sign(message)
+pub fn sign(key: &SigningKey, message: &[u8]) -> Vec<u8> {
+    let sig: Signature = key.sign(message);
+    sig.to_bytes().to_vec()
 }
 
-pub fn verify(public_key: &PublicKey, message: &[u8], signature: &Signature) -> Result<(), Error> {
-    public_key.verify(message, signature)
+pub fn verify_signature(pubkey_bytes: &[u8; 32], message: &[u8], signature_bytes: &[u8]) -> Result<()> {
+    let pubkey = VerifyingKey::from_bytes(pubkey_bytes).map_err(|_| anyhow::anyhow!("Invalid public key"))?;
+    
+    // Check signature length
+    if signature_bytes.len() != 64 {
+        bail!("Invalid signature length");
+    }
+    
+    let signature = Signature::from_bytes(signature_bytes.try_into().unwrap());
+    
+    pubkey.verify(message, &signature).map_err(|_| anyhow::anyhow!("Signature verification failed"))?;
+    Ok(())
 }

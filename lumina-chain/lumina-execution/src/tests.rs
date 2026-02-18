@@ -1,63 +1,85 @@
-#[cfg(test)]
-mod tests {
-    use crate::state_machine::execute_si;
-    use lumina_types::state::GlobalState;
-    use lumina_types::transaction::Transaction;
-    use lumina_types::instruction::{StablecoinInstruction, TrancheType};
-    use lumina_crypto::signatures::generate_keypair;
-    use ed25519_dalek::Signer;
+use super::*;
+use lumina_types::state::{GlobalState, AccountState};
+use lumina_types::instruction::{StablecoinInstruction, AssetType};
+use lumina_types::transaction::Transaction;
 
-    fn create_signed_tx(kp: &ed25519_dalek::SigningKey, instr: StablecoinInstruction, nonce: u64) -> Transaction {
-        let mut tx = Transaction {
-            instruction: instr,
-            sender: kp.verifying_key().to_bytes(),
-            nonce,
-            signature: None,
-        };
-        let bytes = tx.signable_bytes();
-        let sig = kp.sign(&bytes);
-        tx.signature = Some(sig);
-        tx
-    }
+#[test]
+fn test_mint_senior() {
+    let mut state = GlobalState::default();
+    let sender = [1u8; 32];
+    
+    // Setup initial state
+    state.accounts.insert(sender, AccountState::default());
 
-    #[test]
-    fn test_basic_transfer() {
-        let mut state = GlobalState::new();
-        let kp1 = generate_keypair();
-        let kp2 = generate_keypair();
-        
-        // Setup initial balance
-        let pk1 = kp1.verifying_key().to_bytes();
-        state.accounts.insert(pk1, lumina_types::state::AccountState {
-            balance_senior: 1000,
-            ..Default::default()
-        });
-        
-        let tx = create_signed_tx(&kp1, StablecoinInstruction::Transfer { 
-            to: kp2.verifying_key().to_bytes(), 
-            amount: 400 
-        }, 1);
-        
-        execute_si(&tx, &mut state).expect("Transfer failed");
-        
-        assert_eq!(state.accounts.get(&pk1).unwrap().balance_senior, 600);
-        assert_eq!(state.accounts.get(&kp2.verifying_key().to_bytes()).unwrap().balance_senior, 400);
-    }
+    let mut ctx = ExecutionContext {
+        state: &mut state,
+        height: 1,
+        timestamp: 100,
+    };
 
-    #[test]
-    fn test_stabilizer_logic() {
-        let mut state = GlobalState::new();
-        state.senior_supply = 10000;
-        state.stabilization_pool_balance = 2000;
-        state.current_collateral_ratio = 0.8; // Depegged
-        
-        let kp = generate_keypair();
-        let tx = create_signed_tx(&kp, StablecoinInstruction::TriggerStabilizer, 1);
-        
-        execute_si(&tx, &mut state).expect("Stabilizer failed");
-        
-        // 2000 / 2 = 1000 burned
-        assert_eq!(state.senior_supply, 9000);
-        assert_eq!(state.stabilization_pool_balance, 1000);
-    }
+    let instruction = StablecoinInstruction::MintSenior {
+        amount: 500,
+        collateral_amount: 500,
+        proof: vec![],
+    };
+
+    let tx = Transaction {
+        sender,
+        nonce: 0,
+        instruction,
+        signature: vec![],
+        gas_limit: 1000,
+        gas_price: 1,
+    };
+
+    // Execute
+    assert!(execute_transaction(&tx, &mut ctx).is_ok());
+
+    // Verify State
+    let account = state.accounts.get(&sender).unwrap();
+    assert_eq!(account.lusd_balance, 500);
+    assert_eq!(state.total_lusd_supply, 500);
+}
+
+#[test]
+fn test_transfer() {
+    let mut state = GlobalState::default();
+    let sender = [1u8; 32];
+    let receiver = [2u8; 32];
+    
+    state.accounts.insert(sender, AccountState {
+        nonce: 0,
+        lusd_balance: 1000,
+        ljun_balance: 0,
+        lumina_balance: 1000,
+    });
+
+    let mut ctx = ExecutionContext {
+        state: &mut state,
+        height: 1,
+        timestamp: 100,
+    };
+
+    let instruction = StablecoinInstruction::Transfer {
+        to: receiver,
+        amount: 200,
+        asset: AssetType::LUSD,
+    };
+
+    let tx = Transaction {
+        sender,
+        nonce: 0,
+        instruction,
+        signature: vec![],
+        gas_limit: 1000,
+        gas_price: 1,
+    };
+
+    assert!(execute_transaction(&tx, &mut ctx).is_ok());
+
+    let sender_acc = state.accounts.get(&sender).unwrap();
+    let receiver_acc = state.accounts.get(&receiver).unwrap();
+
+    assert_eq!(sender_acc.lusd_balance, 800);
+    assert_eq!(receiver_acc.lusd_balance, 200);
 }

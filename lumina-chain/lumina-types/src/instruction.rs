@@ -1,42 +1,79 @@
 use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub enum TrancheType {
-    Senior,
-    Junior,
+pub enum StablecoinInstruction {
+    // === Core Stablecoin Operations ===
+    /// Mint senior stablecoin (LUSD) with collateral (e.g. USDC bridged)
+    MintSenior {
+        amount: u64,
+        collateral_amount: u64,
+        proof: Vec<u8>, // zk-proof of valid collateral
+    },
+    /// Redeem senior stablecoin for underlying collateral
+    RedeemSenior {
+        amount: u64,
+    },
+    /// Mint junior token (LJUN) for yield + risk absorption
+    MintJunior {
+        amount: u64,
+        collateral_amount: u64,
+    },
+    /// Redeem junior token
+    RedeemJunior {
+        amount: u64,
+    },
+
+    // === Oracle & Reserves ===
+    /// Update oracle price feed (multi-sig or weighted median)
+    UpdateOracle {
+        asset: String,
+        price: u64,
+        timestamp: u64,
+        signature: Vec<u8>,
+    },
+    /// Submit Zero-Knowledge Proof of Reserves
+    SubmitZkPoR {
+        proof: Vec<u8>,
+        total_reserves: u64,
+        timestamp: u64,
+    },
+
+    // === Transfers & Privacy ===
+    /// Standard transparent transfer
+    Transfer {
+        to: [u8; 32],
+        amount: u64,
+        asset: AssetType,
+    },
+    /// Confidential transfer (Bulletproofs / ZK)
+    ConfidentialTransfer {
+        commitment: [u8; 32],
+        proof: Vec<u8>,
+    },
+
+    // === Governance & Staking ===
+    /// Register a new validator
+    RegisterValidator {
+        pubkey: [u8; 32],
+        stake: u64,
+    },
+    /// Vote on a proposal
+    Vote {
+        proposal_id: u64,
+        vote: bool,
+    },
+    
+    // === Compliance ===
+    /// Compliance check (Travel Rule)
+    ComplianceCheck {
+        tx_hash: [u8; 32],
+        compliance_proof: Vec<u8>,
+    },
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum StablecoinInstruction {
-    // Core
-    RegisterAsset { symbol: String, is_senior: bool },
-    MintLUM { amount: u64, tranche: TrancheType },
-    BurnLUM { amount: u64 },
-    Transfer { to: [u8; 32], amount: u64 },
-
-    // Tranche Management
-    MintSenior { amount: u64 },
-    MintJunior { amount: u64 },
-    RebalanceTranches,
-
-    // Stability & Yield
-    SubmitZkPor { proof: Vec<u8> },
-    DistributeYield,
-    TriggerStabilizer,
-    RunCircuitBreaker,
-    FairRedeemQueue { request_id: u64 },
-
-    // Privacy & Compliance
-    ConfidentialTransfer { encrypted_data: Vec<u8>, proof: Vec<u8> },
-    ProveCompliance { proof: Vec<u8> },
-    ZkTaxAttest { tax_proof: Vec<u8> },
-    MultiJurisdictionalCheck { region: String },
-
-    // Fiat & Interop
-    InstantFiatBridge { bank_proof: Vec<u8> },
-    ZeroSlipBatchMatch { batch_id: u64 },
-    DynamicHedge { strategy: u8 },
-    GeoRebalance { region: String, amount: u64 },
-    VelocityIncentive { velocity_score: u64 },
-    StreamPayment { stream_id: u64, rate: u64 },
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum AssetType {
+    LUSD,
+    LJUN,
+    Lumina (u64), // Native gas token
 }

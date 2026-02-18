@@ -6,8 +6,11 @@ edition = "2021"
 [dependencies]
 lumina-types = { path = "../lumina-types" }
 lumina-crypto = { path = "../lumina-crypto" }
-clap = { workspace = true }
+clap = { version = "4.0", features = ["derive"] }
 anyhow = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["full", "macros"] }
 serde = { workspace = true }
-reqwest = "0.11"
+reqwest = { version = "0.11", features = ["json"] }
+hex = "0.4"
+ed25519-dalek = { workspace = true }
+bincode = { workspace = true }
