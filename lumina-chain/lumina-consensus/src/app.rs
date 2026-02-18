@@ -2,6 +2,7 @@
 
 use async_trait::async_trait;
 use lumina_execution::{execute_transaction, ExecutionContext};
+use lumina_crypto::signatures::{verify_pq_signature, verify_signature};
 use lumina_storage::db::Storage;
 use lumina_types::state::GlobalState;
 use lumina_types::transaction::Transaction;
@@ -162,7 +163,19 @@ impl Application for LuminaApp {
     }
 
     async fn check_tx(&self, tx: &[u8]) -> bool {
-        bincode::deserialize::<Transaction>(tx).is_ok()
+        let tx: Transaction = match bincode::deserialize(tx) {
+            Ok(tx) => tx,
+            Err(_) => return false,
+        };
+
+        let signing_bytes = tx.signing_bytes();
+        if let Some(account) = self.state.accounts.get(&tx.sender) {
+            if let Some(ref pq_key) = account.pq_pubkey {
+                return verify_pq_signature(pq_key, &signing_bytes, &tx.signature).is_ok();
+            }
+        }
+
+        verify_signature(&tx.sender, &signing_bytes, &tx.signature).is_ok()
     }
 
     async fn deliver_tx(&mut self, req: DeliverTxRequest) -> Result<(), String> {
@@ -271,10 +284,24 @@ impl<A: Application + Send + Sync> LocalMalachiteEngine<A> {
             })
             .await?;
 
+        let validator_power = |pk: &[u8; 32]| -> u64 {
+            self.app
+                .state
+                .validators
+                .iter()
+                .find(|v| &v.pubkey == pk)
+                .map(|v| v.power.max(1))
+                .unwrap_or(1)
+        };
+
+        let total_power: u64 = self.validators.iter().map(validator_power).sum();
+        let quorum_power: u64 = (total_power * 2 / 3).saturating_add(1);
+
         for validator in &self.validators {
             let entry = self.votes.entry(proposal.height).or_default();
             entry.insert(*validator);
-            if entry.len() >= QUORUM {
+            let voted_power: u64 = entry.iter().map(|pk| validator_power(pk)).sum();
+            if voted_power >= quorum_power {
                 return self.app.commit().await;
             }
         }
@@ -290,9 +317,11 @@ mod tests {
     use tokio::time::Instant;
 
     fn sample_tx() -> Vec<u8> {
+        let kp = lumina_crypto::signatures::generate_keypair();
+        let sender = kp.verifying_key().to_bytes();
         let tx = Transaction {
-            sender: [1u8; 32],
-            nonce: 1,
+            sender,
+            nonce: 0,
             instruction: StablecoinInstruction::Transfer {
                 to: [2u8; 32],
                 amount: 1,
@@ -302,6 +331,8 @@ mod tests {
             gas_limit: 1_000_000,
             gas_price: 1,
         };
+        let mut tx = tx;
+        tx.signature = lumina_crypto::signatures::sign(&kp, &tx.signing_bytes());
         bincode::serialize(&tx).unwrap()
     }
 
@@ -353,5 +384,45 @@ mod tests {
 
         assert!(res.is_ok());
         assert!(elapsed.as_millis() < 900);
+    }
+
+    #[tokio::test]
+    async fn green_validator_has_higher_weighted_voting_power() {
+        let storage = Storage::new("/tmp/lumina-test-wal-3").unwrap();
+        let wal_path = PathBuf::from("/tmp/lumina-test-wal-3/consensus.wal");
+        let mut app = LuminaApp::new(storage, &wal_path);
+
+        // Seed validator set in state with one green validator at 2x power.
+        app.state.validators = (0u8..7u8)
+            .map(|i| {
+                let mut pk = [0u8; 32];
+                pk[0] = i;
+                lumina_types::state::ValidatorState {
+                    pubkey: pk,
+                    stake: 10,
+                    power: if i == 0 { 20 } else { 10 },
+                    is_green: i == 0,
+                    energy_proof: if i == 0 { Some(vec![1u8; 64]) } else { None },
+                }
+            })
+            .collect();
+
+        let validators: Vec<[u8; 32]> = (0u8..7u8)
+            .map(|i| {
+                let mut v = [0u8; 32];
+                v[0] = i;
+                v
+            })
+            .collect();
+
+        let mut engine = LocalMalachiteEngine::new(app, validators).unwrap();
+        let res = engine
+            .propose_and_finalize(LocalProposal {
+                height: 1,
+                txs: vec![],
+            })
+            .await;
+
+        assert!(res.is_ok());
     }
 }

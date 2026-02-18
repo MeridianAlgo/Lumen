@@ -10,3 +10,4 @@ serde = { workspace = true }
 tracing = { workspace = true }
 anyhow = { workspace = true }
 rayon = { workspace = true }
+blake3 = { workspace = true }

@@ -88,6 +88,18 @@ async fn main() -> Result<()> {
                         Err(e) => error!("Failed to deserialize block from {}: {}", peer, e),
                     }
                 }
+                lumina_network::NetworkEvent::PeerDiscovered(peer) => {
+                    tracing::info!("Discovered peer: {}", peer);
+                }
+                lumina_network::NetworkEvent::SyncRequest { .. } => {
+                    // Sync requests are handled inside the networking layer (request-response).
+                }
+                lumina_network::NetworkEvent::SyncResponse { .. } => {
+                    // Sync responses are handled by the sync subsystem.
+                }
+                lumina_network::NetworkEvent::PeerBlacklisted(peer) => {
+                    tracing::warn!("Peer blacklisted: {}", peer);
+                }
             }
         }
     });

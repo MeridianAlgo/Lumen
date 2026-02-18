@@ -6,6 +6,7 @@ edition = "2021"
 [features]
 default = []
 pq-crypto = ["dep:pqcrypto-dilithium", "dep:pqcrypto-kyber", "dep:pqcrypto-traits"]
+ dilithium = ["pq-crypto"]
 
 [dependencies]
 ed25519-dalek = { workspace = true, features = ["rand_core"] }
@@ -23,9 +24,10 @@ ark-relations = "0.4"
 anyhow = { workspace = true }
 thiserror = { workspace = true }
 bulletproofs = { workspace = true }
-curve25519-dalek = { workspace = true }
+curve25519-dalek-ng = { workspace = true }
 merlin = { workspace = true }
 threshold_crypto = { workspace = true }
+rand_core = "0.5"
 pqcrypto-dilithium = { workspace = true, optional = true }
 pqcrypto-kyber = { workspace = true, optional = true }
 pqcrypto-traits = { workspace = true, optional = true }

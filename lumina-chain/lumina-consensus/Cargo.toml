@@ -12,6 +12,7 @@ lumina-types = { path = "../lumina-types" }
 lumina-execution = { path = "../lumina-execution" }
 lumina-storage = { path = "../lumina-storage" }
 lumina-network = { path = "../lumina-network" }
+lumina-crypto = { path = "../lumina-crypto" }
 async-trait = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }

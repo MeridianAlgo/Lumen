@@ -144,6 +144,74 @@ fn test_passkey_account_creation() {
 }
 
 #[test]
+fn test_social_recovery_threshold_and_uniqueness() {
+    let mut state = GlobalState::default();
+    let sender = [11u8; 32];
+
+    // Create 3 guardian keypairs
+    let g1 = lumina_crypto::signatures::generate_keypair();
+    let g2 = lumina_crypto::signatures::generate_keypair();
+    let g3 = lumina_crypto::signatures::generate_keypair();
+
+    let guardians = vec![
+        g1.verifying_key().to_bytes(),
+        g2.verifying_key().to_bytes(),
+        g3.verifying_key().to_bytes(),
+    ];
+
+    // Initialize passkey account with guardians
+    {
+        let mut ctx = ExecutionContext {
+            state: &mut state,
+            height: 1,
+            timestamp: 100,
+        };
+        let si = StablecoinInstruction::CreatePasskeyAccount {
+            device_key: vec![9u8; 65],
+            guardians: guardians.clone(),
+        };
+        execute_si(&si, &sender, &mut ctx).unwrap();
+    }
+
+    // Recovery requires threshold 2-of-3 (majority)
+    let new_device_key = vec![7u8; 65];
+    let sig1 = lumina_crypto::signatures::sign(&g1, &new_device_key);
+    let sig2 = lumina_crypto::signatures::sign(&g2, &new_device_key);
+
+    {
+        let mut ctx = ExecutionContext {
+            state: &mut state,
+            height: 2,
+            timestamp: 200,
+        };
+        let recover = StablecoinInstruction::RecoverSocial {
+            new_device_key: new_device_key.clone(),
+            guardian_signatures: vec![sig1.clone(), sig2.clone()],
+        };
+        execute_si(&recover, &sender, &mut ctx).unwrap();
+    }
+
+    assert_eq!(
+        state.accounts.get(&sender).unwrap().passkey_device_key.as_ref(),
+        Some(&new_device_key)
+    );
+
+    // Duplicate guardian signatures should not satisfy threshold
+    {
+        let mut ctx = ExecutionContext {
+            state: &mut state,
+            height: 3,
+            timestamp: 300,
+        };
+        let recover_dup = StablecoinInstruction::RecoverSocial {
+            new_device_key: vec![8u8; 65],
+            guardian_signatures: vec![sig1.clone(), sig1],
+        };
+        assert!(execute_si(&recover_dup, &sender, &mut ctx).is_err());
+    }
+}
+
+#[test]
 fn test_insurance_fund_mechanics() {
     let mut state = GlobalState::default();
     let sender = [6u8; 32];

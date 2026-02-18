@@ -69,3 +69,21 @@ pub fn kyber_encapsulate(public_key: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
         bail!("Kyber hook disabled at compile-time. Rebuild with --features pq-crypto")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[cfg(feature = "pq-crypto")]
+    fn dilithium_sign_and_verify_roundtrip() {
+        use pqcrypto_dilithium::dilithium3;
+        use pqcrypto_traits::sign::{DetachedSignature as _, PublicKey as _, SecretKey as _};
+
+        let (pk, sk) = dilithium3::keypair();
+        let msg = b"lumina-pq-test";
+        let sig = dilithium3::detached_sign(msg, &sk);
+
+        verify_dilithium_signature(pk.as_bytes(), msg, sig.as_bytes()).unwrap();
+    }
+}

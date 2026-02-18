@@ -772,13 +772,25 @@ pub fn execute_si(
                 );
             }
 
-            // Verify each guardian signature
+            // Verify each guardian signature against any registered guardian.
+            // Each guardian can only contribute once.
+            let mut used_guardians = std::collections::HashSet::<[u8; 32]>::new();
             let mut verified_count = 0usize;
-            for (i, sig) in guardian_signatures.iter().enumerate() {
-                if i < account.guardians.len() {
-                    if verify_signature(&account.guardians[i], new_device_key, sig).is_ok() {
-                        verified_count = verified_count.saturating_add(1);
+            for sig in guardian_signatures {
+                let mut matched = None;
+                for g in &account.guardians {
+                    if used_guardians.contains(g) {
+                        continue;
                     }
+                    if verify_signature(g, new_device_key, &sig).is_ok() {
+                        matched = Some(*g);
+                        break;
+                    }
+                }
+
+                if let Some(g) = matched {
+                    used_guardians.insert(g);
+                    verified_count = verified_count.saturating_add(1);
                 }
             }
             if verified_count < threshold {

@@ -1,10 +1,16 @@
 use anyhow::Result;
-use libp2p::futures::StreamExt;
-use libp2p::request_response::{self, ProtocolSupport};
 use libp2p::{
-    gossipsub, identify, identity, kad, quic, swarm::Config as SwarmConfig,
-    swarm::NetworkBehaviour, swarm::SwarmEvent, Multiaddr, PeerId, Swarm,
+    gossipsub, identify, identity,
+    kad::{self, store::MemoryStore},
+    request_response::{self, ProtocolSupport},
+    swarm::{Config as SwarmConfig, NetworkBehaviour, Swarm, SwarmEvent},
+    Transport,
+    Multiaddr,
+    PeerId,
 };
+use libp2p::core::muxing::StreamMuxerBox;
+use libp2p::futures::StreamExt;
+use libp2p::quic;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
@@ -90,7 +96,9 @@ impl P2PNetwork {
         info!(%peer_id, "Local Peer ID");
 
         // QUIC on libp2p enforces TLS 1.3 for secure transport.
-        let quic_transport = quic::tokio::Transport::new(quic::Config::new(&id_keys));
+        let quic_transport = quic::tokio::Transport::new(quic::Config::new(&id_keys))
+            .map(|(peer, conn), _| (peer, StreamMuxerBox::new(conn)))
+            .boxed();
 
         let gossipsub_config = gossipsub::ConfigBuilder::default()
             .heartbeat_interval(Duration::from_secs(1))
