@@ -1,0 +1,730 @@
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+*.pid
+
+# Database
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+data/
+*.ldb
+*.sst
+*.log
+MANIFEST-*
+CURRENT
+LOCK
+IDENTITY
+OPTIONS
+
+# Node data
+.lumina/
+.lumina-test/
+.lumina-dev/
+
+# Keys and secrets
+*.pem
+*.key
+*.crt
+*.secret
+*.priv
+*.pub
+wallet.json
+keystore/
+secrets/
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Coverage
+coverage/
+*.gcda
+*.gcno
+*.profraw
+
+# Documentation
+_site/
+.sass-cache/
+.jekyll-cache/
+.jekyll-metadata
+
+# Docker
+docker-compose.override.yml
+
+# Test data
+test-data/
+fixtures/
+
+# Build artifacts
+dist/
+build/
+out/
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+
+# Profiling data
+*.profdata
+*.prof
+
+# Benchmark data
+benchmarks/
+*.bench
+
+# Fuzzing
+fuzz/target/
+fuzz/corpus/
+fuzz/artifacts/
+
+# Generated files
+*.pb.rs
+*.pb.h
+*.pb.cc
+generated/
+
+# Configuration overrides
+config.local.toml
+config.dev.toml
+config.test.toml
+
+# Snapshots
+__snapshots__/
+
+# Dependencies
+node_modules/
+bower_components/
+vendor/
+
+# Documentation
+docs/_build/
+docs/source/generated/
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# IDE specific
+.history/
+.session.vim
+
+# macOS
+.AppleDouble
+.LSOverride
+Icon
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# Windows
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+.hidden
+
+# Archives
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# Media
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.mp3
+*.flac
+*.wav
+
+# Images
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+*.ico
+
+# Documents
+*.pdf
+*.doc
+*.docx
+*.xls
+*.xlsx
+*.ppt
+*.pptx
+
+# Lumina specific
+# Node data directories
+data/
+.nodes/
+.validators/
+
+# Snapshot files
+snapshots/
+*.snapshot
+*.tar.gz
+*.tar.bz2
+
+# Genesis files (except the canonical one)
+genesis.json.local
+genesis.test.json
+genesis.dev.json
+
+# State exports
+state-export.json
+state-export-*.json
+
+# Transaction dumps
+tx-dump.json
+tx-dump-*.json
+
+# Backup directories
+backup/
+backups/
+
+# Test network data
+testnet/
+devnet/
+
+# Configuration backups
+config.backup.toml
+config.old.toml
+
+# Log directories
+log/
+logs/
+
+# Metrics data
+metrics/
+prometheus-data/
+
+# Grafana data
+grafana-data/
+
+# Docker volumes
+volume/
+volumes/
+
+# Kubernetes
+kubeconfig
+.kube/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+
+# Ansible
+*.retry
+
+# Packer
+packer_cache/
+
+# Vagrant
+.vagrant/
+
+# CI/CD
+.circleci/
+.travis.yml
+.gitlab-ci.yml
+.jenkins/
+.github/workflows/*.yml
+
+# EditorConfig
+.editorconfig
+
+# Prettier
+.prettierrc
+.prettierignore
+
+# ESLint
+.eslintrc.js
+.eslintignore
+
+# Stylelint
+.stylelintrc
+.stylelintignore
+
+# Husky
+.husky/
+
+# Lint-staged
+.lintstagedrc
+
+# Commitlint
+.commitlintrc.js
+
+# Babel
+.babelrc
+
+# Webpack
+webpack.config.js
+
+# Rollup
+rollup.config.js
+
+# Parcel
+.parcel-cache/
+
+# Next.js
+.next/
+out/
+
+# Nuxt.js
+.nuxt/
+dist/
+
+# Gatsby
+.cache/
+public
+
+# Angular
+dist/
+aot/
+
+# Vue
+dist/
+
+# React
+build/
+
+# Svelte
+public/build/
+
+# Elm
+elm-stuff/
+
+# Scala
+.metals/
+.bloop/
+.mill/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# celery beat schedule file
+celerybeat-schedule
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# PyCharm
+.idea/
+*.iml
+
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Visual Studio
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.sln
+*.suo
+*.opensdf
+*.sdf
+*.db
+*.opendb
+
+# Eclipse
+.project
+.classpath
+.settings/
+
+# NetBeans
+nbproject/
+nb-configuration.xml
+
+# IntelliJ
+out/
+*.ipr
+*.iws
+*.iml
+.idea/
+
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Android
+*.apk
+*.ap_
+*.dex
+*.class
+bin/
+gen/
+out/
+*.keystore
+*.jks
+
+# iOS
+*.ipa
+*.mobileprovision
+*.xcuserstate
+*.xcworkspace/
+*.xcodeproj/
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+!*.xcodeproj/xcuserdata/
+*.xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+DerivedData/
+*.hmap
+*.ipa
+*.xcuserstate
+*.xcarchive
+
+# Flutter
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+.flutter/
+.fvm/
+
+# Dart
+.dart_tool/
+.packages
+.pub/
+build/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Yarn
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# pnpm
+.pnpm-store/
+
+# TypeScript
+*.tsbuildinfo
+
+# Svelte
+.svelte-kit/
+
+# Next.js
+.next/
+out/
+
+# Nuxt.js
+.nuxt/
+dist/
+
+# Gatsby
+.cache/
+public
+
+# Hugo
+/public/
+/resources/_gen/
+
+# Zola
+__zola_build__
+
+# Jekyll
+_site/
+.sass-cache/
+.jekyll-cache/
+.jekyll-metadata
+
+# Hexo
+.deploy_git
+
+# MkDocs
+site/
+
+# Pelican
+output/
+*.pid
+*.socket
+
+# Ruby
+*.gem
+.bundle/
+.ruby-version
+
+# Rails
+tmp/
+log/*.log
+storage/
+*.sqlite3
+*.sqlite3-journal
+config/database.yml
+
+# Scala
+.metals/
+.bloop/
+.mill/
+
+# SBT
+target/
+project/target/
+project/project/
+.history
+
+# Play Framework
+dist/
+/target/
+/target/universal/
+/target/web/
+/target/web/public/
+/target/web/classes/
+/target/web/lib/
+/target/web/modules/
+/target/web/plugins/
+
+# ENSIME
+.ensime
+.ensime_cache/
+
+# Dotenv
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# StencilJS
+.stencil/
+
+# Docusaurus
+.docusaurus/
+
+# Serverless
+.serverless/
+
+# Firebase
+.firebase/
+
+# TernJS
+.tern-port
+
+# Vim
+[._]*.s[a-w][a-z]
+[._]s[a-w][a-z]
+*.un~
+Session.vim
+.netrwhist
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Org-mode
+.org-id-locations
+*_archive
+
+# Kate
+.ktorrent/
+
+# TeX
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.toc
+*.synctex.gz
+
+# LaTeX
+*.dvi
+
+# BibTeX
+*.bbl
+*.blg
+
+# Knitr
+*-concordance.tex
+*.synctex.gz
+
+# Zsh
+.zcompdump*
+.zwc
+
+# PowerShell
+*.ps1xml
+*.psm1
+*.psd1
+*.pssc
+
+# Windows
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+
+# Linux
+*~
+
+# Archives
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# Media
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.mp3
+*.flac
+*.wav
+
+# Images
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+*.ico
+
+# Documents
+*.pdf
+*.doc
+*.docx
+*.xls
+*.xlsx
+*.ppt
+*.pptx
+
+# Lumina Chain specific ignore patterns
+# End of .gitignore
