@@ -1,7 +1,10 @@
-name: Kani (manual)
+name: Kani
 
 on:
-  workflow_dispatch: {}
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
 
 jobs:
   kani:
@@ -9,14 +12,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust (stable)
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust (nightly)
+        uses: dtolnay/rust-toolchain@nightly
 
       - name: Install Kani
         run: cargo install kani-verifier
 
       - name: Run Kani proofs
         run: |
-          kani --version
-          kani -p lumina-execution
+          cargo kani --version
+          cargo kani -p lumina-execution
         working-directory: ./lumina-chain
