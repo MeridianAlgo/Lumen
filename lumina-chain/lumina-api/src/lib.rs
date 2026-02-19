@@ -9,6 +9,7 @@ use lumina_storage::db::Storage;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
+use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
 
 #[derive(Clone)]
@@ -25,16 +26,23 @@ pub async fn start_server(
 ) {
     let state = AppState { global_state, storage, tx_sender };
 
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_headers(Any)
+        .allow_methods(Any);
+
     let app = Router::new()
         .route("/", get(root))
         .route("/state", get(get_state))
         .route("/health", get(get_health))
+        .route("/tx/signing_bytes", post(tx_signing_bytes))
         .route("/tx", post(submit_tx))
         .route("/block/{height}", get(get_block))
         .route("/account/{address}", get(get_account))
         .route("/faucet", post(faucet))
         .route("/validators", get(get_validators))
         .route("/insurance", get(get_insurance))
+        .layer(cors)
         .with_state(state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
@@ -93,6 +101,31 @@ async fn get_block(
     }
 }
 
+#[derive(serde::Deserialize)]
+struct UnsignedTxRequest {
+    pub sender: [u8; 32],
+    pub nonce: u64,
+    pub instruction: lumina_types::instruction::StablecoinInstruction,
+    pub gas_limit: u64,
+    pub gas_price: u64,
+}
+
+async fn tx_signing_bytes(Json(req): Json<UnsignedTxRequest>) -> Json<serde_json::Value> {
+    let tx = Transaction {
+        sender: req.sender,
+        nonce: req.nonce,
+        instruction: req.instruction,
+        signature: Vec::new(),
+        gas_limit: req.gas_limit,
+        gas_price: req.gas_price,
+    };
+
+    let signing_bytes = tx.signing_bytes();
+    Json(serde_json::json!({
+        "signing_bytes_hex": hex::encode(signing_bytes),
+    }))
+}
+
 async fn get_account(
     State(state): State<AppState>,
     Path(address): Path<String>,
@@ -142,32 +175,43 @@ async fn submit_tx(
 
 async fn faucet(
     State(state): State<AppState>,
-    Json(_req): Json<serde_json::Value>,
+    Json(req): Json<serde_json::Value>,
 ) -> Json<serde_json::Value> {
-    use lumina_types::instruction::StablecoinInstruction;
+    let amount: u64 = 10_000;
 
-    let tx = Transaction {
-        sender: [0u8; 32],
-        nonce: 0,
-        instruction: StablecoinInstruction::MintSenior {
-            amount: 10_000,
-            collateral_amount: 12_000,
-            proof: vec![],
-        },
-        signature: vec![],
-        gas_limit: 100_000,
-        gas_price: 1,
-    };
+    let addr_hex = req
+        .get("address")
+        .and_then(|v| v.as_str())
+        .unwrap_or("0x")
+        .trim()
+        .trim_start_matches("0x");
 
-    match state.tx_sender.send(tx).await {
-        Ok(_) => Json(serde_json::json!({
-            "status": "faucet_tx_submitted",
-            "amount": 10_000,
-        })),
-        Err(_) => Json(serde_json::json!({
+    let Ok(bytes) = hex::decode(addr_hex) else {
+        return Json(serde_json::json!({
             "status": "failed",
-        })),
+            "error": "invalid address hex"
+        }));
+    };
+    if bytes.len() != 32 {
+        return Json(serde_json::json!({
+            "status": "failed",
+            "error": "address must be 32 bytes"
+        }));
     }
+    let mut key = [0u8; 32];
+    key.copy_from_slice(&bytes);
+
+    let mut guard = state.global_state.write().await;
+    let account = guard.accounts.entry(key).or_default();
+    account.lusd_balance = account.lusd_balance.saturating_add(amount);
+    guard.total_lusd_supply = guard.total_lusd_supply.saturating_add(amount);
+
+    Json(serde_json::json!({
+        "status": "funded",
+        "address": format!("0x{}", addr_hex),
+        "amount": amount,
+        "asset": "LUSD"
+    }))
 }
 
 async fn get_validators(State(state): State<AppState>) -> Json<serde_json::Value> {
