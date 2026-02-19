@@ -1,4 +1,4 @@
-# Lumina Chain
+# Lumina Chain (Previously Private Repository)
 
 ![Lumina Chain](https://img.shields.io/badge/version-2.1.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -6,6 +6,8 @@
 ![Build](https://img.shields.io/badge/build-passing-brightgreen)
 
 **Lumina Chain** is a high-performance, production-grade Layer 1 blockchain specifically designed for stablecoin operations and enterprise financial applications. Built in Rust for maximum performance and security, Lumina Chain provides a robust, scalable, and secure foundation for the next generation of financial applications.
+
+**Note**: This repository was previously private and has now been made public. You may see like 5000 commits in the next few weeks as we clean up the codebase and add documentation. But then it will plateau and we will focus on adding new features and improvements.
 
 ## 🚀 Features
 
